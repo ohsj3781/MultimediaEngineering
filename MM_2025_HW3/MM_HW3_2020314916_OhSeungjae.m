@@ -1,6 +1,5 @@
 % MM_HW3_2020314916_SeungJaeOh.m %
 
-
 %% Section 1: Sampling %
 % Read original image file %
 original_image = imread('Sample.png');
