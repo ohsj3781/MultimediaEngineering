@@ -1,7 +1,9 @@
 clc; clear; close all;
 
 %% Load image (RGB → Gray, uint8)
-img = imread('animation.png');         % Load File
+% img = imread('animation.png');         % Load File
+% img = imread('SKKU.png');
+img = imread('sample/sample_03.png');
 if size(img,3) == 3, img = rgb2gray(img); end
 img = uint8(img);
 [H, W] = size(img);
@@ -14,19 +16,19 @@ RAW_BITS = numel(img) * 8; % 8bits per pixel
 %  - symbols_nz: actual observed symbols (0..MAXVAL) of length K
 %  - toIdxLUT: lookup table of size (MAXVAL+1), mapping symbol value → 1..K index (0 if not observed)
 function [counts_nz, symbols_nz, toIdxLUT] = build_counts_and_lut(data_vals, MAXVAL)
-    % Compute histogram counts
-    if MAXVAL == 255
-        % Fast 8-bit histogram
-        counts = imhist(uint8(data_vals)); % 256x1
-    else
-        % General case for range 0..MAXVAL
-        counts = accumarray(double(data_vals(:))+1, 1, [MAXVAL+1, 1]);
-    end
-    nz = counts > 0;
-    symbols_nz = find(nz) - 1;               % Actual symbol values (0..MAXVAL)
-    counts_nz  = double(counts(nz));         % Only positive values (required by arithenco)
-    toIdxLUT   = zeros(MAXVAL+1,1,'uint16'); % 0..MAXVAL → 1..K
-    toIdxLUT(nz) = uint16(1:nnz(nz));
+% Compute histogram counts
+if MAXVAL == 255
+    % Fast 8-bit histogram
+    counts = imhist(uint8(data_vals)); % 256x1
+else
+    % General case for range 0..MAXVAL
+    counts = accumarray(double(data_vals(:))+1, 1, [MAXVAL+1, 1]);
+end
+nz = counts > 0;
+symbols_nz = find(nz) - 1;               % Actual symbol values (0..MAXVAL)
+counts_nz  = double(counts(nz));         % Only positive values (required by arithenco)
+toIdxLUT   = zeros(MAXVAL+1,1,'uint16'); % 0..MAXVAL → 1..K
+toIdxLUT(nz) = uint16(1:nnz(nz));
 end
 
 %% ========= Original Image: Huffman & Arithmetic Coding =========
@@ -48,7 +50,7 @@ bits_arithmetic_orig   = numel(stream_arith_orig);
 %% ========= Horizontal DPCM: Huffman & Arithmetic Coding =========
 % Prediction: use the left pixel (first column uses pred=0)
 img_int16 = int16(img);
-pred_H  = zeros(H,W,'int16'); 
+pred_H  = zeros(H,W,'int16');
 pred_H(:,2:W) = img_int16(:,1:W-1);
 DPCM_H_TEMP   = img_int16 - pred_H;                   % Range: [-255..255]
 DPCM_H = uint16(DPCM_H_TEMP + 255);                   % Shifted to [0..510]
@@ -62,13 +64,13 @@ bits_huffman_DPCM_H   = numel(stream_huff_H);
 
 % Arithmetic using Horizontal DPCM
 [~, ~, lutH] = build_counts_and_lut(DPCM_H(:), 510);
-seqH = lutH(double(DPCM_H(:))+1); 
+seqH = lutH(double(DPCM_H(:))+1);
 stream_arith_H = arithenco(double(seqH), countsH_nz);
 bits_arithmetic_DPCM_H   = numel(stream_arith_H);
 
 %% ========= Vertical DPCM: Huffman & Arithmetic Coding =========
 % Prediction: use the pixel above (first row uses pred=0)
-pred_V    = zeros(H,W,'int16'); 
+pred_V    = zeros(H,W,'int16');
 pred_V(2:H,:) = img_int16(1:H-1,:);
 DPCM_V_TEMP     = img_int16 - pred_V;                   % Range: [-255..255]
 DPCM_V   = uint16(DPCM_V_TEMP + 255);                   % Shifted to [0..510]
@@ -96,8 +98,8 @@ print_row('DPCM-Ver', RAW_BITS, bits_huffman_DPCM_V,    bits_arithmetic_DPCM_V);
 fprintf('=========================================================\n');
 
 function print_row(name, raw_bits, bits_h, bits_a)
-    crH = raw_bits/bits_h;
-    crA = raw_bits/bits_a;
-    fprintf('%-10s | %13d | %13d | %15d |   Huffman:%6.4f  Arithmetic:%6.4f\n', ...
-        name, raw_bits ,bits_h, bits_a, crH, crA);
+crH = raw_bits/bits_h;
+crA = raw_bits/bits_a;
+fprintf('%-10s | %13d | %13d | %15d |   Huffman:%6.4f  Arithmetic:%6.4f\n', ...
+    name, raw_bits ,bits_h, bits_a, crH, crA);
 end
